@@ -1,0 +1,6 @@
+{
+    "AZURE_OPENAI_KEY": "7qaQOWVohk3eLHUqph2letl1rPGwDv0F05zkCbJuB1owsTSf2PFBJQQJ99BAACYeBjFXJ3w3AAABACOGLfgL",
+    "AZURE_OPENAI_ENDPOINT": "https://test-openai1891.openai.azure.com/",
+    "AZURE_OPENAI_APIVERSION": "2024-05-01-preview",
+    "CHATGPT_MODEL": "gpt-4o-mini"
+}
