@@ -1,10 +1,10 @@
 "use client"
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/app/components/ui/card"
 import { Button } from "@/app/components/ui/button"
 import { Input } from "@/app/components/ui/input"
-import { Calendar, User, Mail, Save, AlertCircle } from "lucide-react"
+import { Calendar, User, Mail, Save, AlertCircle, MapPin, Loader2 } from "lucide-react"
 
 export default function ProfilePage() {
   const [userData, setUserData] = useState({
@@ -19,39 +19,165 @@ export default function ProfilePage() {
 
   const [isEditing, setIsEditing] = useState(false)
   const [savingStatus, setSavingStatus] = useState<null | "saving" | "success" | "error">(null)
+  const [isGeocodingLoading, setIsGeocodingLoading] = useState(false)
+  const [geocodingError, setGeocodingError] = useState<string | null>(null)
+
+  // Update the loadUserData function to use POST instead of GET (default fetch method)
+  const loadUserData = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      // Use POST method instead of GET
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/user/profile`, {
+        method: "POST", // Changed from GET to POST
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        // Add an empty body for the POST request
+        body: JSON.stringify({}),
+      })
+
+      if (!response.ok) throw new Error("Failed to load profile")
+
+      const data = await response.json()
+
+      setUserData({
+        name: data.name || "",
+        email: data.email || "",
+        birthDate: data.birth_details?.date || "",
+        birthTime: data.birth_details?.time || "",
+        birthPlace: data.birth_details?.place || "",
+        latitude: data.birth_details?.latitude || "",
+        longitude: data.birth_details?.longitude || "",
+      })
+    } catch (error) {
+      console.error("Error loading profile:", error)
+
+      // Add fallback data for development/testing
+      setUserData({
+        name: localStorage.getItem("user_name") || "Test User",
+        email: localStorage.getItem("user_email") || "user@example.com",
+        birthDate: "1990-01-01",
+        birthTime: "12:00",
+        birthPlace: "New York, USA",
+        latitude: "40.7128",
+        longitude: "-74.0060",
+      })
+    }
+  }
 
   useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const token = localStorage.getItem("token")
-        if (!token) return
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/user/profile`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (!response.ok) throw new Error("Failed to load profile")
-
-        const data = await response.json()
-
-        setUserData({
-          name: data.name || "",
-          email: data.email || "",
-          birthDate: data.birth_details?.date || "",
-          birthTime: data.birth_details?.time || "",
-          birthPlace: data.birth_details?.place || "",
-          latitude: data.birth_details?.latitude || "",
-          longitude: data.birth_details?.longitude || "",
-        })
-      } catch (error) {
-        console.error("Error loading profile:", error)
-      }
-    }
-
     loadUserData()
   }, [])
+
+  // Debounce function to prevent too many API calls
+  const debounce = (func: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout
+    return (...args: any[]) => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        func(...args)
+      }, delay)
+    }
+  }
+
+  // Geocode the birthplace to get latitude and longitude using Positionstack
+  const geocodeBirthplace = async (place: string) => {
+    if (!place.trim()) return
+
+    setIsGeocodingLoading(true)
+    setGeocodingError(null)
+
+    try {
+      // Use Positionstack API (25,000 free calls per month)
+      const apiKey = process.env.NEXT_PUBLIC_POSITIONSTACK_API_KEY || ""
+
+      if (!apiKey) {
+        throw new Error("Geocoding API key not found")
+      }
+
+      const response = await fetch(
+        `http://api.positionstack.com/v1/forward?access_key=${apiKey}&query=${encodeURIComponent(place)}`,
+      )
+
+      const data = await response.json()
+
+      if (data.data && data.data.length > 0) {
+        const { latitude, longitude } = data.data[0]
+        setUserData((prev) => ({
+          ...prev,
+          latitude: latitude.toString(),
+          longitude: longitude.toString(),
+        }))
+      } else {
+        throw new Error("No results found")
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error)
+      setGeocodingError("Couldn't find coordinates. Using fallback database.")
+
+      // Simple fallback for common cities
+      const fallbackCoordinates: Record<string, [string, string]> = {
+        "new york": ["40.7128", "-74.0060"],
+        london: ["51.5074", "-0.1278"],
+        tokyo: ["35.6762", "139.6503"],
+        paris: ["48.8566", "2.3522"],
+        mumbai: ["19.0760", "72.8777"],
+        delhi: ["28.6139", "77.2090"],
+        beijing: ["39.9042", "116.4074"],
+        sydney: ["-33.8688", "151.2093"],
+        rio: ["-22.9068", "-43.1729"],
+        cairo: ["30.0444", "31.2357"],
+        berlin: ["52.5200", "13.4050"],
+        moscow: ["55.7558", "37.6173"],
+        toronto: ["43.6532", "-79.3832"],
+        "mexico city": ["19.4326", "-99.1332"],
+        "sao paulo": ["-23.5505", "-46.6333"],
+        lagos: ["6.5244", "3.3792"],
+        istanbul: ["41.0082", "28.9784"],
+        dubai: ["25.2048", "55.2708"],
+        singapore: ["1.3521", "103.8198"],
+        barcelona: ["41.3851", "2.1734"],
+        rome: ["41.9028", "12.4964"],
+        chicago: ["41.8781", "-87.6298"],
+        "los angeles": ["34.0522", "-118.2437"],
+        "san francisco": ["37.7749", "-122.4194"],
+        bangkok: ["13.7563", "100.5018"],
+        "hong kong": ["22.3193", "114.1694"],
+        seoul: ["37.5665", "126.9780"],
+        johannesburg: ["-26.2041", "28.0473"],
+        "kuala lumpur": ["3.1390", "101.6869"],
+        amsterdam: ["52.3676", "4.9041"],
+      }
+
+      // Check if the place contains any of our fallback cities
+      const lowerPlace = place.toLowerCase()
+      const matchedCity = Object.keys(fallbackCoordinates).find((city) => lowerPlace.includes(city))
+
+      if (matchedCity) {
+        const [lat, lng] = fallbackCoordinates[matchedCity]
+        setUserData((prev) => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+        }))
+        setGeocodingError("Using approximate coordinates from our database.")
+      } else {
+        setGeocodingError("Couldn't find coordinates. Please enter manually.")
+      }
+    } finally {
+      setIsGeocodingLoading(false)
+    }
+  }
+
+  // Create a debounced version of the geocode function
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedGeocode = useCallback(
+    debounce((place: string) => geocodeBirthplace(place), 1000),
+    [],
+  )
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -59,6 +185,11 @@ export default function ProfilePage() {
       ...prev,
       [name]: value,
     }))
+
+    // If birthPlace is changed and we're in edit mode, trigger geocoding
+    if (name === "birthPlace" && isEditing && value.trim().length > 3) {
+      debouncedGeocode(value)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -259,15 +390,33 @@ export default function ProfilePage() {
                         >
                           Birth Place
                         </label>
-                        <Input
-                          id="birthPlace"
-                          name="birthPlace"
-                          value={userData.birthPlace}
-                          onChange={handleInputChange}
-                          disabled={!isEditing}
-                          className="w-full dark:bg-gray-800 dark:text-white dark:border-gray-700"
-                          placeholder="City, Country"
-                        />
+                        <div className="relative">
+                          <Input
+                            id="birthPlace"
+                            name="birthPlace"
+                            value={userData.birthPlace}
+                            onChange={handleInputChange}
+                            disabled={!isEditing}
+                            className="w-full dark:bg-gray-800 dark:text-white dark:border-gray-700 pr-10"
+                            placeholder="City, Country"
+                          />
+                          {isGeocodingLoading && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                            </div>
+                          )}
+                          {!isGeocodingLoading && userData.latitude && userData.longitude && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              <MapPin className="h-4 w-4 text-green-500" />
+                            </div>
+                          )}
+                        </div>
+                        {geocodingError && (
+                          <p className="mt-1 text-xs text-amber-500 dark:text-amber-400">{geocodingError}</p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          Enter your birth place and coordinates will be filled automatically
+                        </p>
                       </div>
 
                       <div>
