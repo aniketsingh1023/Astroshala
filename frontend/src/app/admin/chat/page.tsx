@@ -507,7 +507,7 @@ const useChatMessages = () => {
     } else if (question.includes("house") || question.includes("bhava")) {
       return "Vedic astrology divides a birth chart into 12 houses or bhavas, each governing different areas of life. The 1st house represents self and personality, 2nd house wealth, 3rd house siblings, 4th house mother and home, 5th house creativity and children, and so on."
     } else if (question.includes("zodiac") || question.includes("rashi")) {
-      return "Vedic astrology uses the sidereal zodiac with 12 signs (rashis): Aries (Mesha), Taurus (Vrishabha), Gemini (Mithuna), Cancer (Karka), Leo (Simha), Virgo (Kanya), Libra (Tula), Scorpio (Vrishchika), Sagittarius (Dhanu), Capricorn (Makara), Aquarius (Kumbha), and Pisces (Meena)."
+      return "Vedic astrology uses the sidereal zodiac with 12 signs (rashis): Aries (Mesha), Taurus (Vrishabha), Gemini (Mithuna), Cancer (Karka), Leo (Simha), Virgo (Kanya), Libra (Tula), Scorpio (Vrischika), Sagittarius (Dhanu), Capricorn (Makara), Aquarius (Kumbha), and Pisces (Meena)."
     } else if (question.includes("dasha") || question.includes("period")) {
       return "Parasara Jyotish uses the Vimshottari Dasha system to time events. This system divides life into planetary periods (dashas) and sub-periods (antardashas). The sequence is: Sun (6 years), Moon (10 years), Mars (7 years), Rahu (18 years), Jupiter (16 years), Saturn (19 years), Mercury (17 years), Ketu (7 years), and Venus (20 years)."
     }
@@ -594,12 +594,14 @@ export default function ChatPage() {
     <div className="flex flex-col h-[calc(100vh-7rem)]">
       <div className="mb-4 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Astrological Consultation</h1>
-          <p className="text-gray-600">Ask questions and receive insights based on Vedic astrological principles</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Astrological Consultation</h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Ask questions and receive insights based on Vedic astrological principles
+          </p>
         </div>
         <Button
           variant="outline"
-          className="flex items-center gap-2 text-black"
+          className="flex items-center gap-2 text-gray-800 dark:text-gray-200"
           onClick={resetConversation}
           disabled={loading}
         >
@@ -608,12 +610,12 @@ export default function ChatPage() {
         </Button>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden">
+      <Card className="flex-1 flex flex-col overflow-hidden dark:bg-gray-900 border-gray-200 dark:border-gray-700">
         {/* Messages container */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-purple-50">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-purple-50 dark:bg-gray-900">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-black-500">
-              <Bot size={48} className="mb-2 text-purple-400" />
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
+              <Bot size={48} className="mb-2 text-purple-400 dark:text-purple-300" />
               <p>Start your consultation by sending a message</p>
               <Button variant="outline" className="mt-4" onClick={() => startConversation()}>
                 Start New Consultation
@@ -633,41 +635,58 @@ export default function ChatPage() {
                   >
                     <div
                       className={`p-2 rounded-full ${
-                        message.role === "user" ? "bg-purple-600 text-white" : "bg-gray-200 text-gray-800"
+                        message.role === "user"
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                       }`}
                     >
                       {message.role === "user" ? <UserIcon size={20} /> : <Bot size={20} />}
                     </div>
-                    <Card className={`${message.role === "user" ? "bg-purple-600" : "bg-white"}`}>
+                    <Card className={`${message.role === "user" ? "bg-purple-600" : "bg-white dark:bg-gray-900"}`}>
                       <CardContent className="p-3">
                         {message.role === "assistant" ? (
-                          <div className="prose max-w-none text-black space-y-6">
+                          <div className="prose max-w-none text-black dark:text-white space-y-6">
                             <ReactMarkdown
                               components={{
                                 // Enhanced heading formatting
-                                h1: ({ ...props }) => <h1 className="text-2xl font-bold mt-8 mb-4" {...props} />,
-                                h2: ({ ...props }) => <h2 className="text-xl font-bold mt-6 mb-3" {...props} />,
-                                h3: ({ ...props }) => <h3 className="text-lg font-bold mt-5 mb-2" {...props} />,
-                                h4: ({ ...props }) => <h4 className="text-base font-bold mt-4 mb-2" {...props} />,
+                                h1: ({ ...props }) => (
+                                  <h1 className="text-2xl font-bold mt-8 mb-4 dark:text-white" {...props} />
+                                ),
+                                h2: ({ ...props }) => (
+                                  <h2 className="text-xl font-bold mt-6 mb-3 dark:text-white" {...props} />
+                                ),
+                                h3: ({ ...props }) => (
+                                  <h3 className="text-lg font-bold mt-5 mb-2 dark:text-white" {...props} />
+                                ),
+                                h4: ({ ...props }) => (
+                                  <h4 className="text-base font-bold mt-4 mb-2 dark:text-white" {...props} />
+                                ),
 
                                 // Enhanced paragraph spacing
-                                p: ({ ...props }) => <p className="my-3" {...props} />,
+                                p: ({ ...props }) => <p className="my-3 dark:text-gray-200" {...props} />,
 
                                 // Enhanced list formatting
-                                ul: ({ ...props }) => <ul className="list-disc pl-6 my-4 space-y-2" {...props} />,
+                                ul: ({ ...props }) => (
+                                  <ul className="list-disc pl-6 my-4 space-y-2 dark:text-gray-200" {...props} />
+                                ),
                                 // Style ordered lists with better numbering
                                 ol: ({ ...props }) => (
-                                  <ol className="list-decimal pl-6 my-4 space-y-2 font-medium" {...props} />
+                                  <ol
+                                    className="list-decimal pl-6 my-4 space-y-2 font-medium dark:text-gray-200"
+                                    {...props}
+                                  />
                                 ),
                                 // All list items get consistent styling
-                                li: ({ ...props }) => <li className="my-2 pl-1" {...props} />,
+                                li: ({ ...props }) => <li className="my-2 pl-1 dark:text-gray-200" {...props} />,
 
                                 // Enhanced horizontal rule
-                                hr: ({ ...props }) => <hr className="my-6 border-t-2 border-gray-200" {...props} />,
+                                hr: ({ ...props }) => (
+                                  <hr className="my-6 border-t-2 border-gray-200 dark:border-gray-700" {...props} />
+                                ),
 
                                 // Enhanced strong and emphasis
-                                strong: ({ ...props }) => <strong className="font-bold" {...props} />,
-                                em: ({ ...props }) => <em className="italic" {...props} />,
+                                strong: ({ ...props }) => <strong className="font-bold dark:text-white" {...props} />,
+                                em: ({ ...props }) => <em className="italic dark:text-gray-200" {...props} />,
                               }}
                             >
                               {message.content}
@@ -676,7 +695,9 @@ export default function ChatPage() {
                         ) : (
                           <p className="text-white">{message.content}</p>
                         )}
-                        <div className={`text-xs mt-3 ${message.role === "user" ? "text-purple-200" : "text-black"}`}>
+                        <div
+                          className={`text-xs mt-3 ${message.role === "user" ? "text-purple-200" : "text-gray-500 dark:text-gray-400"}`}
+                        >
                           {new Date(message.timestamp).toLocaleTimeString()}
                         </div>
                       </CardContent>
@@ -688,7 +709,9 @@ export default function ChatPage() {
               {/* Topic Selection Buttons */}
               {showTopicSelection && !loading && (
                 <div className="flex flex-col items-center justify-center my-6 space-y-4">
-                  <p className="text-center text-gray-700 font-medium">What would you like advice on?</p>
+                  <p className="text-center text-gray-700 dark:text-gray-300 font-medium">
+                    What would you like advice on?
+                  </p>
                   <div className="flex flex-wrap justify-center gap-4">
                     <Button
                       onClick={() => requestTopicAdvice("job")}
@@ -712,7 +735,7 @@ export default function ChatPage() {
                       Finance & Wealth
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">Or type your own question below</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Or type your own question below</p>
                 </div>
               )}
             </>
@@ -721,10 +744,10 @@ export default function ChatPage() {
           {/* Loading indicator */}
           {loading && (
             <div className="flex justify-start">
-              <Card className="bg-white">
+              <Card className="bg-white dark:bg-gray-800">
                 <CardContent className="p-3 flex items-center space-x-2">
-                  <Loader2 size={16} className="animate-spin text-purple-600" />
-                  <span className="text-gray-600">Interpreting...</span>
+                  <Loader2 size={16} className="animate-spin text-purple-600 dark:text-purple-400" />
+                  <span className="text-gray-600 dark:text-gray-300">Interpreting...</span>
                 </CardContent>
               </Card>
             </div>
@@ -733,8 +756,8 @@ export default function ChatPage() {
           {/* Error message */}
           {error && (
             <div className="flex justify-center">
-              <Card className="bg-red-50 border-red-200">
-                <CardContent className="p-3 text-red-600">
+              <Card className="bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800">
+                <CardContent className="p-3 text-red-600 dark:text-red-300">
                   <p>Error: {error}</p>
                   <Button variant="outline" size="sm" className="mt-2" onClick={() => resetConversation()}>
                     Try Again
@@ -748,24 +771,27 @@ export default function ChatPage() {
         </div>
 
         {/* Message input */}
-        <form onSubmit={handleSubmit} className="p-4 border-t bg-white mt-auto">
+        <form
+          onSubmit={handleSubmit}
+          className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 mt-auto"
+        >
           <div className="flex space-x-2">
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Type your question here..."
               disabled={loading}
-              className="flex-grow"
+              className="flex-grow dark:bg-gray-800 dark:text-white dark:border-gray-700"
             />
             <Button
               type="submit"
               disabled={loading || !inputValue.trim()}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800"
             >
               {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
             </Button>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
             Your consultation is based on Vedic astrological principles and knowledge from ancient texts.
           </p>
         </form>
