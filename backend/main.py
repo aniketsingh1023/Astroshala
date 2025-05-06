@@ -3,28 +3,29 @@ import logging
 import flask
 from flask import Flask, jsonify, request
 from flask_cors import CORS 
-from flask_pymongo import PyMongo
+from pymongo import MongoClient
 from flask_jwt_extended import JWTManager, get_jwt_identity, verify_jwt_in_request
 from dotenv import load_dotenv
 from datetime import datetime
 from bson import ObjectId
 from openai import OpenAI
 
-# Import topic advisor
-from topic_advisor import generate_topic_response, generate_mock_topic_response
-
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 
+# Enable CORS for all routes
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 # Global handler for CORS headers
 @app.after_request
 def add_cors_headers(response):
-    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+    response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
     response.headers.add('Access-Control-Allow-Credentials', 'true')
@@ -36,17 +37,37 @@ def add_cors_headers(response):
 def options_handler(path):
     return '', 200
 
-# Configure MongoDB
+# Configure MongoDB - using direct MongoClient instead of PyMongo
 mongo_uri = os.getenv("MONGODB_URI")
 if not mongo_uri:
-    raise ValueError("MONGODB_URI is not set in .env")
-app.config["MONGO_URI"] = mongo_uri
-mongo = PyMongo(app)
+    logger.error("MONGODB_URI is not set in .env")
+    mongo_uri = "mongodb://localhost:27017/contact_details"  # Fallback for development
+
+try:
+    # Connect to MongoDB
+    mongo_client = MongoClient(mongo_uri)
+    # Test the connection
+    mongo_client.admin.command('ping')
+    logger.info("MongoDB connection successful")
+    
+    # Get the contact_details database
+    db = mongo_client["contact_details"]
+    
+    # Check if the Contact collection exists, create if not
+    if "Contact" not in db.list_collection_names():
+        db.create_collection("Contact")
+        logger.info("Created 'Contact' collection in 'contact_details' database")
+        
+except Exception as e:
+    logger.error(f"MongoDB connection error: {str(e)}")
+    mongo_client = None
+    db = None
 
 # JWT configuration
 jwt_secret = os.getenv('JWT_SECRET')
 if not jwt_secret:
-    raise ValueError("JWT_SECRET is not set in .env")
+    jwt_secret = "dev-secret-key"  # Fallback for development
+    logger.warning("Using development JWT secret key")
 
 app.config['JWT_SECRET_KEY'] = jwt_secret
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 86400
@@ -56,8 +77,14 @@ app.config['JWT_HEADER_TYPE'] = 'Bearer'
 
 jwt = JWTManager(app)
 
-# Initialize OpenAI client
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client if API key is available
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if openai_api_key:
+    openai_client = OpenAI(api_key=openai_api_key)
+    logger.info("OpenAI client initialized")
+else:
+    openai_client = None
+    logger.warning("OPENAI_API_KEY not set, AI features will be unavailable")
 
 # System prompt for astrology context - emphasizing birth chart analysis
 ASTROLOGY_SYSTEM_PROMPT = """
@@ -139,16 +166,6 @@ IMPORTANT: Keep your response concise and under 600 tokens (approximately 450 wo
 Use **bold** for sections, *italics* for key words, and space for readability.
 """
 
-# MongoDB collections - defined as functions to ensure they're accessed after connection is established
-def get_db():
-    return mongo.db
-
-def get_conversations_collection():
-    return get_db()["conversations"]
-
-def get_messages_collection():
-    return get_db()["messages"]
-
 # Import vector_store
 try:
     from vector_store import search_similar_pdfs
@@ -171,16 +188,20 @@ def handle_auth_optional_request():
 def generate_response_with_rag(user_message, conversation_history=None, birth_details=None, topic=None):
     """Generate a response using RAG approach"""
     try:
-        # Check if this is a topic-specific request
-        if topic in ['job', 'marriage', 'finance']:
-            logger.info(f"Generating topic-specific response for: {topic}")
-            return generate_topic_response(openai_client, user_message, topic, conversation_history, birth_details)
-        
         # Get relevant documents from vector store if available
         context = ""
         if HAS_VECTOR_STORE:
             try:
-                relevant_documents = search_similar_pdfs(user_message, top_k=5)
+                # Get vector database name from environment variables
+                vector_db_name = os.getenv('VECTOR_DB_NAME', 'vector_db')
+                vector_collection_name = os.getenv('VECTOR_COLLECTION_NAME', 'Vectors')
+                
+                relevant_documents = search_similar_pdfs(
+                    user_message, 
+                    top_k=5,
+                    db_name=vector_db_name,
+                    collection_name=vector_collection_name
+                )
                 
                 if relevant_documents and len(relevant_documents) > 0:
                     logger.info(f"Found {len(relevant_documents)} relevant documents")
@@ -227,7 +248,7 @@ def generate_response_with_rag(user_message, conversation_history=None, birth_de
         
         # Get response from OpenAI with max_tokens set to 600
         response = openai_client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"),
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             messages=messages,
             temperature=0.7,
             max_tokens=600  # Limit to 600 tokens
@@ -239,16 +260,11 @@ def generate_response_with_rag(user_message, conversation_history=None, birth_de
     
     except Exception as e:
         logger.error(f"Error generating RAG response: {str(e)}")
-        
-        # Use topic-specific mock response if applicable
-        if topic in ['job', 'marriage', 'finance']:
-            return generate_mock_topic_response(topic)
-        
         return generate_mock_response(user_message)
 
 def generate_mock_response(question):
     """Generate a mock response based on the question (fallback)"""
-    question = question.toLowerCase() if hasattr(question, 'toLowerCase') else question.lower()
+    question = question.lower() if hasattr(question, 'lower') else question.lower()
     
     # If asking for birth chart analysis
     if "birth chart" in question or "chart analysis" in question or "birth details" in question:
@@ -334,68 +350,6 @@ def direct_chat_query():
         # Check for authentication
         current_user_id = handle_auth_optional_request()
         
-        # If authenticated and conversation ID provided, use existing conversation
-        if current_user_id and conversation_id and not conversation_id.startswith('direct-'):
-            try:
-                # Verify conversation exists and belongs to the user
-                conversations_collection = get_conversations_collection()
-                conversation = conversations_collection.find_one({
-                    "_id": ObjectId(conversation_id),
-                    "user_id": ObjectId(current_user_id)
-                })
-                
-                if conversation:
-                    # Get conversation history
-                    messages_collection = get_messages_collection()
-                    messages_cursor = messages_collection.find({
-                        "conversation_id": conversation_id
-                    }).sort("timestamp", 1)
-                    
-                    history = list(messages_cursor)
-                    
-                    # Get birth details from conversation if not provided
-                    if not birth_details:
-                        birth_details = conversation.get('birth_details', {})
-                    
-                    # Generate response using RAG
-                    response_text = generate_response_with_rag(user_message, history, birth_details, topic)
-                    
-                    # Store messages in MongoDB
-                    current_time = datetime.utcnow()
-                    
-                    # Store user message
-                    messages_collection.insert_one({
-                        "conversation_id": conversation_id,
-                        "role": "user",
-                        "content": user_message,
-                        "timestamp": current_time
-                    })
-                    
-                    # Store assistant response
-                    messages_collection.insert_one({
-                        "conversation_id": conversation_id,
-                        "role": "assistant",
-                        "content": response_text,
-                        "timestamp": current_time
-                    })
-                    
-                    # Update conversation last_updated timestamp
-                    conversations_collection.update_one(
-                        {"_id": ObjectId(conversation_id)},
-                        {"$set": {"last_updated": current_time}}
-                    )
-                    
-                    return jsonify({
-                        'success': True,
-                        'response': response_text,
-                        'conversation_id': conversation_id
-                    }), 200
-                else:
-                    logger.warning(f"Conversation {conversation_id} not found or does not belong to user {current_user_id}")
-            except Exception as e:
-                logger.error(f"Error in authenticated conversation flow: {str(e)}")
-                # Continue to fallback flow
-        
         # For unauthenticated users or fallback
         logger.info("Using RAG for direct query flow")
         response_text = generate_response_with_rag(user_message, conversation_history, birth_details, topic)
@@ -431,38 +385,7 @@ def direct_start_conversation():
         # Generate welcome message
         welcome_message = "Welcome to Parasara Jyotish consultation! I'm your astrological assistant. Before we begin, could you please tell me a little about yourself?"
         
-        # Create conversation in MongoDB if authenticated
-        conversation_id = None
-        if current_user_id:
-            try:
-                conversations_collection = get_conversations_collection()
-                messages_collection = get_messages_collection()
-                
-                # Create conversation document
-                current_time = datetime.utcnow()
-                conversation_result = conversations_collection.insert_one({
-                    "user_id": ObjectId(current_user_id),
-                    "created_at": current_time,
-                    "last_updated": current_time,
-                    "birth_details": birth_details
-                })
-                
-                conversation_id = str(conversation_result.inserted_id)
-                
-                # Store welcome message
-                messages_collection.insert_one({
-                    "conversation_id": conversation_id,
-                    "role": "assistant",
-                    "content": welcome_message,
-                    "timestamp": current_time
-                })
-                
-                logger.info(f"Created new conversation with ID {conversation_id} for user {current_user_id}")
-            except Exception as e:
-                logger.error(f"Error creating conversation: {str(e)}")
-                conversation_id = f'direct-{datetime.utcnow().timestamp()}'
-        else:
-            conversation_id = f'direct-{datetime.utcnow().timestamp()}'
+        conversation_id = f'direct-{datetime.utcnow().timestamp()}'
         
         return jsonify({
             'success': True,
@@ -485,59 +408,79 @@ def index():
 @app.route('/api/health')
 def health_check():
     try:
-        get_db().command('ping')
-        mongodb_status = "connected"
+        if mongo_client is not None:
+            mongo_client.admin.command('ping')
+            mongodb_status = "connected"
+        else:
+            mongodb_status = "not connected"
     except Exception as e:
         mongodb_status = f"error: {str(e)}"
     
     return jsonify({
         'status': 'healthy',
         'mongodb': mongodb_status,
-        'version': flask.__version__,
-        'vector_store': "available" if HAS_VECTOR_STORE else "unavailable"
+        'version': flask.__version__
     }), 200
 
-# Register other blueprints
-try:
-    from routes.auth_routes import auth_bp
-    from routes.user_routes import user_bp
-    
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(user_bp, url_prefix='/api/user')
-    
-    logger.info("Registered auth and user blueprints")
-except ImportError as e:
-    logger.error(f"Error importing blueprints: {e}")
+# Simple contact form submission endpoint
+@app.route('/api/contact/direct-submit', methods=['POST'])
+def direct_submit_contact():
+    """Direct implementation of contact form submission"""
+    try:
+        # Get request data
+        data = request.json
+        logger.info(f"Received direct contact form submission: {data}")
+        
+        # Validate required fields
+        required_fields = ['name', 'email', 'contactNumber', 'birthDate', 'birthTime', 'birthPlace']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'error': f'{field} is required'
+                }), 400
+        
+        # Check if MongoDB is connected
+        if mongo_client is None:
+            logger.error("MongoDB client is None")
+            return jsonify({
+                'success': False,
+                'error': 'Database connection error'
+            }), 500
+        
+        # Format data for MongoDB
+        contact_data = {
+            'name': data.get('name'),
+            'email': data.get('email'),
+            'contactNumber': data.get('contactNumber'),
+            'birthDate': data.get('birthDate'),
+            'birthTime': data.get('birthTime'),
+            'birthPlace': data.get('birthPlace'),
+            'message': data.get('message', ''),
+            'created_at': datetime.now().isoformat()
+        }
+        
+        # Insert into MongoDB
+        result = db["Contact"].insert_one(contact_data)
+        logger.info(f"Contact form saved with ID: {result.inserted_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Form submitted successfully',
+            'id': str(result.inserted_id)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error in direct contact form submission: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to process contact form',
+            'details': str(e)
+        }), 500
 
 if __name__ == '__main__':
-    # Verify MongoDB connection
-    try:
-        db = get_db()
-        db.command('ping')
-        logger.info("MongoDB connection successful")
-        
-        # Create required collections if they don't exist
-        collections = db.list_collection_names()
-        if "conversations" not in collections:
-            db.create_collection("conversations")
-            logger.info("Created 'conversations' collection")
-        if "messages" not in collections:
-            db.create_collection("messages")
-            logger.info("Created 'messages' collection")
-            
-        # Test vector store if available
-        if HAS_VECTOR_STORE:
-            try:
-                from vector_store import count_documents
-                doc_count = count_documents()
-                logger.info(f"Vector store contains {doc_count} documents")
-            except Exception as e:
-                logger.error(f"Error accessing vector store: {str(e)}")
-    except Exception as e:
-        logger.error(f"MongoDB connection error: {str(e)}")
-    
     host = os.getenv('HOST', '0.0.0.0')
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 5001))
     debug = os.getenv('DEBUG', 'True').lower() == 'true'
     
     logger.info(f"Starting server on {host}:{port}")

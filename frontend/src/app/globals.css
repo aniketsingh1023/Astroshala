@@ -14,14 +14,15 @@
   }
 }
 
-h1, h2, h3, h4, h5, h6, p, label, Input {
-  color: black;
-}
-
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.dark body {
+  color: var(--foreground);
+  background: var(--background);
 }
 
 /* Animation delay classes for chat bubbles */
@@ -39,7 +40,8 @@ body {
 
 /* Custom animation variants */
 @keyframes typing {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -49,4 +51,30 @@ body {
 
 .animate-typing {
   animation: typing 1s infinite;
+}
+
+/* Dark mode overrides */
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6,
+.dark p,
+.dark label,
+.dark Input {
+  color: white;
+}
+
+/* Light mode */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+label,
+Input {
+  color: black;
 }

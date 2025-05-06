@@ -105,36 +105,24 @@ class EmailService:
             msg.attach(part1)
             msg.attach(part2)
             
-            # Log connection attempt with full details
-            logger.info(f"Attempting to connect to SMTP server: {self.smtp_server}:{self.smtp_port}")
-            logger.info(f"Sending from: {self.sender_email} to: {to_email}")
-            
             # Create SMTP connection and send email
             if self.smtp_port == 465:
-                # SSL connection
                 server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
-                logger.info("Using SSL connection")
             else:
-                # TLS connection
                 server = smtplib.SMTP(self.smtp_server, self.smtp_port)
                 server.ehlo()
                 server.starttls()
                 server.ehlo()
-                logger.info("Using TLS connection")
             
-            # Login and send
-            logger.info("Attempting to log in...")
             server.login(self.sender_email, self.sender_password)
-            logger.info("Login successful, sending email...")
-            
             server.sendmail(
                 self.sender_email,
                 to_email,
                 msg.as_string()
             )
-            logger.info(f"Email successfully sent to {to_email}")
-            
             server.quit()
+            
+            logger.info(f"Email successfully sent to {to_email}")
             return True
             
         except Exception as e:
@@ -242,4 +230,96 @@ class EmailService:
             logger.error(f"Error sending password reset email: {str(e)}")
             # Still print the reset URL to console for testing
             logger.info(f"DEVELOPMENT MODE: Password reset URL for {to_email}: {reset_url}")
+            return False
+            
+    def send_contact_notification(self, to_email, user_name, user_email, message):
+        """Send notification when a new contact form is submitted"""
+        logger.info(f"Sending contact form notification for {user_email}")
+        
+        if not self.sender_email or not self.sender_password:
+            logger.warning("Email configuration missing. Contact notification not sent.")
+            return True
+            
+        try:
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = 'New Contact Form Submission - Parasara Jyotish'
+            msg['From'] = self.sender_email
+            msg['To'] = to_email
+            
+            # Email template
+            html_template = """
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #6B46C1;">New Contact Form Submission</h2>
+                    <p>You have received a new contact form submission:</p>
+                    
+                    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <p><strong>Name:</strong> {{ name }}</p>
+                        <p><strong>Email:</strong> {{ email }}</p>
+                        <p><strong>Message:</strong></p>
+                        <p>{{ message }}</p>
+                    </div>
+                    
+                    <p>Please respond to this inquiry at your earliest convenience.</p>
+                    <hr style="border: 1px solid #eee; margin: 20px 0;">
+                    <p style="color: #666; font-size: 12px;">
+                        This is an automated message from your website.
+                    </p>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Render template
+            template = Template(html_template)
+            html_content = template.render(
+                name=user_name,
+                email=user_email,
+                message=message or "No message provided"
+            )
+            
+            # Also create a plain text version
+            text_content = f"""
+            New Contact Form Submission
+            
+            Name: {user_name}
+            Email: {user_email}
+            
+            Message:
+            {message or "No message provided"}
+            
+            Please respond to this inquiry at your earliest convenience.
+            """
+            
+            # Attach text and HTML versions
+            part1 = MIMEText(text_content, 'plain')
+            part2 = MIMEText(html_content, 'html')
+            msg.attach(part1)
+            msg.attach(part2)
+            
+            # Create SMTP connection and send email
+            if self.smtp_port == 465:
+                server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
+            else:
+                server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+            
+            server.login(self.sender_email, self.sender_password)
+            server.sendmail(
+                self.sender_email,
+                to_email,
+                msg.as_string()
+            )
+            server.quit()
+            
+            logger.info(f"Contact notification email sent to {to_email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending contact notification email: {str(e)}")
             return False

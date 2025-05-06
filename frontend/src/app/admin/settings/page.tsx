@@ -97,95 +97,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Notification Settings */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center mb-4">
-            <Bell className="h-5 w-5 text-purple-600 mr-2" />
-            <h2 className="text-xl font-bold text-gray-800">Notification Settings</h2>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-gray-900">Email Notifications</h3>
-                <p className="text-sm text-gray-500">Receive emails for important updates</p>
-              </div>
-              <button
-                onClick={() => handleNotificationChange('email')}
-                title="Toggle Email Notifications"
-                aria-label="Toggle Email Notifications"
-                className={`w-10 h-6 rounded-full flex items-center transition-colors duration-300 focus:outline-none ${
-                  notifications.email ? 'bg-purple-600 justify-end' : 'bg-gray-300 justify-start'
-                }`}
-              >
-                <span className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
-                  notifications.email ? 'translate-x-0.5' : '-translate-x-0.5'
-                }`}></span>
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-gray-900">App Notifications</h3>
-                <p className="text-sm text-gray-500">Receive in-app notifications</p>
-              </div>
-              <button
-                onClick={() => handleNotificationChange('app')}
-                title="Toggle App Notifications"
-                aria-label="Toggle App Notifications"
-                className={`w-10 h-6 rounded-full flex items-center transition-colors duration-300 focus:outline-none ${
-                  notifications.app ? 'bg-purple-600 justify-end' : 'bg-gray-300 justify-start'
-                }`}
-              >
-                <span className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
-                  notifications.app ? 'translate-x-0.5' : '-translate-x-0.5'
-                }`}></span>
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-gray-900">Marketing Emails</h3>
-                <p className="text-sm text-gray-500">Receive promotional content and offers</p>
-              </div>
-              <button
-                onClick={() => handleNotificationChange('marketing')}
-                title="Toggle Marketing Emails"
-                aria-label="Toggle Marketing Emails"
-                className={`w-10 h-6 rounded-full flex items-center transition-colors duration-300 focus:outline-none ${
-                  notifications.marketing ? 'bg-purple-600 justify-end' : 'bg-gray-300 justify-start'
-                }`}
-              >
-                <span className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
-                  notifications.marketing ? 'translate-x-0.5' : '-translate-x-0.5'
-                }`}></span>
-              </button>
-            </div>
-            
-            <div className="pt-2 flex justify-end">
-              <Button
-                onClick={() => saveSettings('notifications')}
-                disabled={savingSection === 'notifications'}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {savingSection === 'notifications' ? (
-                  <>
-                    <Save className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Preferences
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+      
       {/* Appearance & Language */}
       <Card>
         <CardContent className="p-6">
@@ -229,7 +141,7 @@ export default function SettingsPage() {
             <div>
               <h3 className="font-medium text-gray-900 mb-3">Language</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {['english', 'hindi', 'sanskrit', 'spanish'].map((lang) => (
+                {['english', 'hindi', 'tamil'].map((lang) => (
                   <button
                     key={lang}
                     onClick={() => setLanguage(lang)}
